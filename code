@@ -1,0 +1,847 @@
+#include <GL/glut.h>
+#include<GL/glut.h>
+#include<stdio.h>
+#define  clr(v,val) memset(v,val,sizeof(v))
+#define  mp make_pair
+#define pb push_back
+#define sz(v)  (int)v.size()
+#include<vector>
+#include<string>
+#include<iostream>
+#include<math.h>
+#include<map>
+using namespace std;
+const int log_l=1000,log_w=1000,ph_l=600,ph_w=600;
+double mouse_x1=-2,mouse_y1=-2,mouse_x2=-2,mouse_y2=-2,str_x1=-2,str_y1=-2,en_x,en_y,mouse_x3=-2,mouse_y3=-2;
+double str_x2=-2,str_y2=-2,str_x3=-2,str_y3=-2,str_x4=-2,str_y4=-2,str_x5=-2,str_y5=-2;
+int vis_buttom[20];
+bool is_dragging=0;
+bool is_in_MMouse=0;
+bool is_in_keyboard=0;
+string cur_txt;
+int My_Timer=1;
+int IDX_lim[10];
+map<int,int> my_map;
+struct Colour{
+  double r,g,b;
+  Colour(){
+    r=g=b=0;
+  }
+  Colour(double a,double c,double d){
+    r=a;
+    g=c;
+    b=d;
+
+  }
+};
+struct Point{
+
+  double x,y;
+  Point(){
+   x=y=0.0;
+  }
+  Point(double a,double b){
+     x=a;
+     y=b;
+  }
+};
+struct Line{
+
+   Point A,B;
+   Colour C;
+   Line(){
+     A=Point();
+     B=Point();
+     C=Colour();
+   }
+   Line(Point AA,Point BB,Colour CC){
+      A=Point(AA.x,AA.y);
+      B=Point(BB.x,BB.y);
+      C=Colour(CC.r,CC.g,CC.b);
+   }
+};
+struct RRectangle{
+
+   Point A,B,C,D;
+   bool is_Fill=0;
+   Colour CC;
+
+   RRectangle(){
+    A=Point();
+    B=Point();
+    C=Point();
+    D=Point();
+    is_Fill=0;
+    CC=Colour();
+   }
+   RRectangle(Point a,Point b,Point c,Point d,Colour cc,bool isfill){
+      A=Point(a.x,a.y);
+      B=Point(b.x,b.y);
+      C=Point(c.x,c.y);
+      D=Point(d.x,d.y);
+      CC=Colour(cc.r,cc.g,cc.b);
+      is_Fill=isfill;
+   }
+};
+struct Circle{
+
+    Point center;
+    double radius;
+    Colour C;
+    bool is_Fill;
+
+    Circle(){
+      center=Point();
+      radius=0.0;
+      C=Colour();
+      is_Fill=0;
+    }
+
+    Circle(Point cc,double r,Colour col,bool isfill){
+     radius = r;
+     center=Point(cc.x,cc.y);
+     is_Fill=isfill;
+     C=Colour(col.r,col.g,col.b);
+    }
+
+};
+struct TText{
+
+   Point pos;
+   string st;
+   Colour C;
+   TText(){
+     pos=Point();
+     st="";
+     C=Colour();
+   }
+   TText(Point a,string b,Colour cc){
+      pos=Point(a.x,a.y);
+      st=b;
+      C=Colour(cc.r,cc.g,cc.b);
+   }
+
+};
+vector< Line > Lines_vec;
+vector<RRectangle> Rects_vec;
+vector< Circle > circle_vec;
+vector< TText > text_vec;
+vector< pair< vector<Point>,Colour> > pens_vec;
+vector< Point > temp_pens_vec;
+Colour last_col;
+bool is_last_fill=0;
+double Fix(double val,int flag){
+
+  if(flag==0){
+
+    if(val>=20&&val<=1000-20) return val;
+    if(fabs(val-20)<=fabs(val-(1000-20))) return 20;
+    return 1000-20;
+  }
+  if(val>=20&&val<=20+890) return val;
+    if(fabs(val-20)<=fabs(val-(20+890))) return 20;
+    return 20+890;
+}
+double get_dist(double x1,double y1,double x2,double y2){
+
+  return sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
+}
+void draw_a_circle(Point center,double r,bool isfill,int num_segments){
+   double cx=center.x;
+   double cy=center.y;
+
+     if(isfill==0){
+     glBegin(GL_LINE_LOOP);
+     for (int i = 0; i < num_segments; i++){
+         double theta = 2.0f * 3.1415926f * float(i) / float(num_segments); //get the current angle in radians
+         double x = r * cosf(theta);//calculate the x component
+         double y = r * sinf(theta);//calculate the y component
+         glVertex2d(Fix(x + cx,0), Fix(y + cy,1));//output vertex
+     }
+     glEnd();
+     }
+     else{
+      glBegin(GL_POLYGON);
+     for (int i = 0; i < num_segments; i++){
+         double theta = 2.0f * 3.1415926f * float(i) / float(num_segments); //get the current angle in radians
+         double x = r * cosf(theta);//calculate the x component
+         double y = r * sinf(theta);//calculate the y component
+         glVertex2d(Fix(x + cx,0), Fix(y + cy,1));
+     }
+     glEnd();
+     }
+
+}
+bool is_in(double x,double y,double sx,double ex,double sy,double ey){
+
+  return (x>=sx&&x<=ex&&y>=sy&&y<=ey);
+}
+int get_buttom(double mx,double my){
+
+     if(is_in(mx,my,1000-(20+40),1000-(20+40)+40,20+890+20,20+890+20+40.0)) return 1;
+
+     if(is_in(mx,my,1000-(20+40+40+10),1000-(20+40+40+10)+40,20+890+20,20+890+20+40)) return 2;
+     if(is_in(mx,my,1000-(20+40+40+10+40+10),1000-(20+40+40+10+40+10)+40,20+890+20,20+890+20+40)) return 3;
+     if(is_in(mx,my,1000-(20+40+40+10+40+10+40+10),1000-(20+40+40+10+40+10+40+10)+40,20+890+20,20+890+20+40)) return 4;
+     if(is_in(mx,my,1000-(20+40+40+10+40+10+40+10+50),1000-(20+40+40+10+40+10+40+10+50)+40,20+890+20,20+890+20+40)) return 5;
+     if(is_in(mx,my,1000-(20+40+40+10+40+10+40+10+100),1000-(20+40+40+10+40+10+40+10+100)+40,20+890+20,20+890+20+40)) return 6;
+     if(is_in(mx,my,1000-(20+40+40+10+40+10+40+10+100+50),1000-(20+40+40+10+40+10+40+10+100+50)+40,20+890+20,20+890+20+40)) return 7;
+     if(is_in(mx,my,1000-(20+40+40+10+40+10+40+10+100+100),1000-(20+40+40+10+40+10+40+10+100+100)+40,20+890+20,20+890+20+40)) return 8;
+
+     if(is_in(mx,my,20,20+100,20+890+10,20+890+10+30)) return 9;
+     if(is_in(mx,my,20,20+100,20+890+10+30+10,20+890+10+30+10+30)) return 10;
+
+     if(is_in(mx,my,20+100+10,20+100+10+100,20+890+10,20+890+10+30)) return 11;
+     if(is_in(mx,my,20+100+10,20+100+10+100,20+890+10+30+10,20+890+10+30+10+30)) return 12;
+
+     if(is_in(mx,my,20+100+10+100+10,20+100+10+100+10+100,20+890+10,20+890+10+30)) return 13;
+     if(is_in(mx,my,20+100+10+100+10,20+100+10+100+10+100,20+890+10+30+10,20+890+10+30+10+30)) return 14;
+
+     if(is_in(mx,my,20+100+10+100+10+100+10,20+100+10+100+10+100+10+100,20+890+10,20+890+10+30)) return 15;
+     if(is_in(mx,my,20+100+10+100+10+100+10,20+100+10+100+10+100+10+100,20+890+10+30+10,20+890+10+30+10+30)) return 16;
+
+     return -1;
+}
+void draw_rectangle(double x,double y,double len,double width,double r,double g,double b,bool flag,int isbuttom){
+
+   glColor3f(0.0,0.0,0.0);
+
+   glBegin(GL_LINE_STRIP);
+
+     glVertex2d(x,y);
+     glVertex2d(x+len,y);
+     glVertex2d(x+len,y+width);
+     glVertex2d(x,y+width);
+     glVertex2d(x,y);
+
+    glEnd();
+    bool ok1=(isbuttom!=0&&is_in(mouse_x1,mouse_y1,x,x+len,y,y+width)==1&&vis_buttom[isbuttom]==0);
+
+   // printf("%d\n",ok);
+   if(flag==1||(vis_buttom[isbuttom]==1||ok1==1)){
+
+    if(vis_buttom[isbuttom]==1){
+      glColor3f(153/255.0,204/255.0,255/255.0);
+    }
+    else if(ok1==1){
+        glColor3f(192/255.0,192/255.0,192/255.0);
+    }
+    else{
+        glColor3f(r,g,b);
+    }
+
+
+
+     glBegin(GL_QUADS);
+
+     glVertex2d(x,y);
+     glVertex2d(x+len,y);
+     glVertex2d(x+len,y+width);
+     glVertex2d(x,y+width);
+     glVertex2d(x,y);
+
+    glEnd();
+   }
+
+}
+void write_text(double x,double y,string st,double r,double g,double b,int flag=0){
+     int n=st.size();
+
+     glColor3f(r,g,b);
+     glRasterPos2d(x,y);
+
+     for(int i=0;i<n;i++){
+        if(flag==1)
+        glutBitmapCharacter(GLUT_BITMAP_8_BY_13,st[i]);
+        else{
+         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_10,st[i]);
+        }
+     }
+}
+pair<double,pair<double,double> > get_col(){
+
+   if(vis_buttom[1]==1){
+    return mp(0.0,mp(0.0,0.0));
+   }
+   if(vis_buttom[2]==1){
+     return mp(1.0,mp(1.0,1.0));
+   }
+   if(vis_buttom[3]==1){
+    return mp(0.6,mp(0.2,1.0));
+   }
+   if(vis_buttom[4]==1){
+    return mp(1.0,mp(128.0/255.0,0.0));
+   }
+   if(vis_buttom[5]==1){
+    return mp(1.0,mp(1.0,0.0));
+   }
+   if(vis_buttom[6]==1){
+    return mp(0.0,mp(204.0/255.0,204.0/255.0));
+   }
+   if(vis_buttom[7]==1){
+    return mp(102.0/255.0,mp(204.0/255.0,0.0));
+
+   }
+   if(vis_buttom[8]==1){
+     return mp(1.0,mp(0.0,0.0));
+   }
+   return mp(0.0,mp(0.0,0.0));
+
+}
+void work_onthe_line(int flag){
+    if(flag==0){
+     if(is_in_MMouse==0){
+        if(str_x1!=-2){
+            my_map[My_Timer++]=2;
+            Lines_vec.pb(Line(Point(str_x1,str_y1),Point(en_x,en_y),last_col));
+        }
+        str_x1=-2;
+        str_y1=-2;
+
+    }
+    return ;
+    }
+
+     if(is_in_MMouse==0){
+        return ;
+    }
+
+    double r=0.0,g=0.0,b=0.0;
+    pair<double,pair<double,double>> col=get_col();
+    r=col.first;
+    g=col.second.first;
+    b=col.second.second;
+
+    last_col= Colour(r,g,b);
+    if(is_in(mouse_x2,mouse_y2,20,1000-20,20,890+20)==0||vis_buttom[10]==0) return ;
+
+    if(str_x1==-2){
+        str_x1=Fix(mouse_x3,0);
+        str_y1=Fix(mouse_y3,1);
+    }
+
+    en_x=Fix(mouse_x3,0);
+    en_y=Fix(mouse_y3,1);
+
+
+    glColor3f(r,g,b);
+  //  printf("in\n");
+    glBegin(GL_LINES);
+        glVertex2d(str_x1,str_y1);
+        glVertex2d(en_x,en_y);
+    glEnd();
+}
+void draw_the_lines(){
+
+    //for(int i=0;i<sz(Lines_vec);i++){
+        int i=IDX_lim[2];
+
+        glColor3f(Lines_vec[i].C.r,Lines_vec[i].C.g,Lines_vec[i].C.b);
+        glBegin(GL_LINES);
+
+           glVertex2d(Lines_vec[i].A.x,Lines_vec[i].A.y);
+           glVertex2d(Lines_vec[i].B.x,Lines_vec[i].B.y);
+        glEnd();
+
+    //}
+
+}
+void work_onthe_rects(int flag){
+
+    if(flag==0){
+    if(is_in_MMouse==0){
+        if(str_x2!=-2){
+            my_map[My_Timer++]=4;
+            Rects_vec.pb(RRectangle(Point(str_x2,str_y2),Point(en_x,str_y2),Point(en_x,en_y),Point(str_x2,en_y),last_col,is_last_fill));
+        }
+        str_x2=-2;
+        str_y2=-2;
+
+    }
+    return ;
+    }
+    if(is_in_MMouse==0||vis_buttom[12]==0){
+        return ;
+    }
+
+    double r=0.0,g=0.0,b=0.0;
+    pair<double,pair<double,double>> col=get_col();
+    r=col.first;
+    g=col.second.first;
+    b=col.second.second;
+
+    last_col= Colour(r,g,b);
+    is_last_fill=(vis_buttom[16]==1);
+    if(is_in(mouse_x2,mouse_y2,20,1000-20,20,890+20)==0||vis_buttom[12]==0) return ;
+
+    if(str_x2==-2){
+        str_x2=Fix(mouse_x3,0);
+        str_y2=Fix(mouse_y3,1);
+    }
+
+    en_x=Fix(mouse_x3,0);
+    en_y=Fix(mouse_y3,1);
+
+
+    glColor3f(r,g,b);
+  //  printf("in\n");
+   if(is_last_fill==1){
+    glBegin(GL_QUADS);
+        glVertex2d(str_x2,str_y2);
+        glVertex2d(en_x,str_y2);
+        glVertex2d(en_x,en_y);
+        glVertex2d(str_x2,en_y);
+    glEnd();
+   }
+   else{
+    glBegin(GL_LINE_STRIP);
+        glVertex2d(str_x2,str_y2);
+        glVertex2d(en_x,str_y2);
+        glVertex2d(en_x,en_y);
+        glVertex2d(str_x2,en_y);
+        glVertex2d(str_x2,str_y2);
+    glEnd();
+   }
+
+}
+void draw_the_rects(){
+
+
+
+  //  for(int i=0;i<sz(Rects_vec);i++){
+        int i=IDX_lim[4];
+        glColor3f(Rects_vec[i].CC.r,Rects_vec[i].CC.g,Rects_vec[i].CC.b);
+        if(Rects_vec[i].is_Fill==1){
+        glBegin(GL_QUADS);
+
+           glVertex2d(Rects_vec[i].A.x,Rects_vec[i].A.y);
+           glVertex2d(Rects_vec[i].B.x,Rects_vec[i].B.y);
+           glVertex2d(Rects_vec[i].C.x,Rects_vec[i].C.y);
+           glVertex2d(Rects_vec[i].D.x,Rects_vec[i].D.y);
+
+        glEnd();
+        }
+        else{
+         glBegin(GL_LINE_STRIP);
+
+           glVertex2d(Rects_vec[i].A.x,Rects_vec[i].A.y);
+           glVertex2d(Rects_vec[i].B.x,Rects_vec[i].B.y);
+           glVertex2d(Rects_vec[i].C.x,Rects_vec[i].C.y);
+           glVertex2d(Rects_vec[i].D.x,Rects_vec[i].D.y);
+           glVertex2d(Rects_vec[i].A.x,Rects_vec[i].A.y);
+
+        glEnd();
+        }
+
+    //}
+
+
+}
+void work_onthe_circle(int flag){
+    if(flag==0){
+    if(is_in_MMouse==0){
+        if(str_x3!=-2){
+            my_map[My_Timer++]=5;
+            circle_vec.pb(Circle(Point(str_x3,str_y3),get_dist(str_x3,str_y3,en_x,en_y),Colour(last_col.r,last_col.g,last_col.b),is_last_fill));
+        }
+        str_x3=-2;
+        str_y3=-2;
+
+    }
+    return ;
+    }
+
+   if(is_in_MMouse==0||vis_buttom[14]==0){
+        return ;
+    }
+
+    double r=0.0,g=0.0,b=0.0;
+    pair<double,pair<double,double>> col=get_col();
+    r=col.first;
+    g=col.second.first;
+    b=col.second.second;
+
+    last_col= Colour(r,g,b);
+    is_last_fill=(vis_buttom[16]==1);
+
+    if(is_in(mouse_x2,mouse_y2,20,1000-20,20,890+20)==0||vis_buttom[14]==0) return ;
+
+    if(str_x3==-2){
+        str_x3=Fix(mouse_x3,0);
+        str_y3=Fix(mouse_y3,1);
+    }
+
+    en_x=Fix(mouse_x3,0);
+    en_y=Fix(mouse_y3,1);
+
+  //  cerr<<"in";
+    glColor3f(r,g,b);
+  //  printf("in\n");
+    draw_a_circle(Point(str_x3,str_y3),get_dist(str_x3,str_y3,en_x,en_y),(is_last_fill),1000);
+}
+void draw_the_circles(){
+
+
+
+   // for(int i=0;i<sz(circle_vec);i++){
+        int i=IDX_lim[5];
+        glColor3f(circle_vec[i].C.r,circle_vec[i].C.g,circle_vec[i].C.b);
+       // cout<<circle_vec[i].center.x<<" "<<circle_vec[i].center.y<<endl;
+        draw_a_circle(circle_vec[i].center,circle_vec[i].radius,circle_vec[i].is_Fill,1000);
+
+   // }
+
+}
+void write_the_texts(){
+
+    double r=0.0,g=0.0,b=0.0;
+    pair<double,pair<double,double>> col=get_col();
+    r=col.first;
+    g=col.second.first;
+    b=col.second.second;
+
+
+
+    //for(int i=0;i<sz(text_vec);i++){
+        int i=IDX_lim[3];
+
+        write_text(text_vec[i].pos.x,text_vec[i].pos.y,text_vec[i].st,text_vec[i].C.r,text_vec[i].C.g,text_vec[i].C.b,1);
+    //}
+
+}
+unsigned char my_key;
+void work_onthe_text(int flag){
+
+    if(flag==0){
+    if(is_in_keyboard==0){
+
+        if(str_x4!=-2){
+            my_map[My_Timer++]=3;
+            text_vec.pb(TText(Point(str_x4,str_y4),cur_txt,last_col));
+        }
+        str_x4=str_y4=-2;
+        cur_txt="";
+    }
+    return ;
+    }
+    if(is_in_keyboard==0||vis_buttom[11]==0) return ;
+    if(str_x4==-2){
+        str_x4=mouse_x2;
+        str_y4=mouse_y2;
+    }
+    double r=0.0,g=0.0,b=0.0;
+    pair<double,pair<double,double>> col=get_col();
+    r=col.first;
+    g=col.second.first;
+    b=col.second.second;
+    last_col=Colour(r,g,b);
+    if(str_y4+(13000/600.0)>20+890) return ;
+
+    if(vis_buttom[11]==1){
+
+
+        if(is_in(str_x4+(sz(cur_txt)+1)*(8000/600.0),str_y4,20,1000-20,20,20+890)==1){
+          cur_txt+=my_key;
+          write_text(str_x4,str_y4,cur_txt,r,g,b,1);
+        }
+        else{
+          write_text(str_x4,str_y4,cur_txt,r,g,b,1);
+        }
+    }
+
+}
+void work_onthe_pen(int flag){
+
+   if(flag==0){
+    if(is_in_MMouse==0){
+        if(str_x5!=-2){
+            my_map[My_Timer++]=1;
+            pens_vec.pb(mp(temp_pens_vec,last_col));
+        }
+        str_x5=str_y5=-2;
+        temp_pens_vec.clear();
+
+    }
+    return ;
+   }
+
+    if(is_in_MMouse==0||vis_buttom[9]==0) return ;
+    if(str_x5==-2){
+        str_x5=mouse_x3;
+        str_y5=mouse_y3;
+    }
+    double r=0.0,g=0.0,b=0.0;
+    pair<double,pair<double,double>> col=get_col();
+    r=col.first;
+    g=col.second.first;
+    b=col.second.second;
+    last_col=Colour(r,g,b);
+    for(int i=0;i<sz(temp_pens_vec);i++){
+        glColor3f(r,g,b);
+        glBegin(GL_POINTS);
+         glVertex2d(Fix(temp_pens_vec[i].x,0),Fix(temp_pens_vec[i].y,1));
+        glEnd();
+    }
+    temp_pens_vec.pb(Point(Fix(mouse_x3,0),Fix(mouse_y3,1)));
+    glColor3f(r,g,b);
+    glBegin(GL_POINTS);
+      glVertex2d(Fix(mouse_x3,0),Fix(mouse_y3,1));
+    glEnd();
+
+
+}
+void draw_the_pens(){
+
+
+   // for(int i=0;i<sz(pens_vec);i++){
+        int i=IDX_lim[1];
+        glColor3f(pens_vec[i].second.r,pens_vec[i].second.g,pens_vec[i].second.b);
+        for(int j=0;j<sz(pens_vec[i].first);j++){
+
+            glBegin(GL_POINTS);
+             glVertex2d(pens_vec[i].first[j].x,pens_vec[i].first[j].y);
+            glEnd();
+        }
+    //}
+
+
+}
+
+void the_undo(){
+
+   if(vis_buttom[13]==0) return ;
+   int Lim=vis_buttom[13];
+   while(sz(my_map)>0&&Lim--){
+
+   auto it=prev(my_map.end());
+   int num=(*it).second;
+   if(num==1){
+    pens_vec.pop_back();
+   }
+   if(num==2){
+    Lines_vec.pop_back();
+   }
+   if(num==3){
+    text_vec.pop_back();
+   }
+   if(num==4){
+    Rects_vec.pop_back();
+   }
+   if(num==5){
+    circle_vec.pop_back();
+   }
+   my_map.erase(prev(my_map.end()));
+
+   }
+
+}
+
+void draw_the_layout(){
+
+
+   the_undo();
+   draw_rectangle(20.0,20.0,1000-40,890,0.0,0.0,0.0,0,0);  // the scrren to paint on
+
+   // the eight colour buttons
+   draw_rectangle(1000-(20+40),20+890+20,40.0,40.0,0.0,0.0,0.0,1,1);
+   draw_rectangle(1000-(20+40+40+10),20+890+20,40.0,40.0,0.0,0.0,0.0,0,2);
+   draw_rectangle(1000-(20+40+40+10+40+10),20+890+20,40.0,40.0,0.6,0.2,1.0,1,3);
+   draw_rectangle(1000-(20+40+40+10+40+10+40+10),20+890+20,40.0,40.0,1.0,128.0/255.0,0.0,1,4);
+   draw_rectangle(1000-(20+40+40+10+40+10+40+10+50),20+890+20,40.0,40.0,1.0,1.0,0.0,1,5);
+   draw_rectangle(1000-(20+40+40+10+40+10+40+10+100),20+890+20,40.0,40.0,0.0,204.0/255.0,204.0/255.0,1,6);
+   draw_rectangle(1000-(20+40+40+10+40+10+40+10+100+50),20+890+20,40.0,40.0, 102.0/255.0,204.0/255.0,0.0,1,7);
+   draw_rectangle(1000-(20+40+40+10+40+10+40+10+100+100),20+890+20,40.0,40.0,1.0,0.0,0.0,1,8);
+
+   // eight buutoms for shapes
+   draw_rectangle(20,20+890+10,100.0,30.0,0.0,0.0,0.0,0,9);
+   draw_rectangle(20,20+890+10+30+10,100.0,30.0,0.0,0.0,0.0,0,10);
+
+   draw_rectangle(20+100+10,20+890+10,100.0,30.0,0.0,0.0,0.0,0,11);
+   draw_rectangle(20+100+10,20+890+10+30+10,100.0,30.0,0.0,0.0,0.0,0,12);
+
+   draw_rectangle(20+100+10+100+10,20+890+10,100.0,30.0,0.0,0.0,0.0,0,13);
+   draw_rectangle(20+100+10+100+10,20+890+10+30+10,100.0,30.0,0.0,0.0,0.0,0,14);
+
+   draw_rectangle(20+100+10+100+10+100+10,20+890+10,100.0,30.0,0.0,0.0,0.0,0,15);
+   draw_rectangle(20+100+10+100+10+100+10,20+890+10+30+10,100.0,30.0,0.0,0.0,0.0,0,16);
+
+
+   // wrting on the eight buttoms for the shapes
+   write_text(20+25,20+890+10+30+10+5,"Line",0.0,0.0,0.0);
+   write_text(20+25,20+890+10+5,"Pen",0.0,0.0,0.0);
+
+   write_text(20+100+10+25,20+890+10+30+10+5,"Rect",0.0,0.0,0.0);
+   write_text(20+100+10+25,20+890+10+5,"Text",0.0,0.0,0.0);
+
+   write_text(20+100+10+100+10+25,20+890+10+30+10+5,"Circle",0.0,0.0,0.0);
+   write_text(20+100+10+100+10+25,20+890+10+5,"Undo",0.0,0.0,0.0);
+
+   write_text(20+100+10+100+10+100+10+25,20+890+10+30+10+5,"Fill",0.0,0.0,0.0);
+   write_text(20+100+10+100+10+100+10+25,20+890+10+5,"No Fill",0.0,0.0,0.0);
+
+   work_onthe_circle(0);
+   work_onthe_rects(0);
+   work_onthe_line(0);
+   work_onthe_text(0);
+   work_onthe_pen(0);
+
+   for(int i=0;i<10;i++) IDX_lim[i]=0;
+   //cout<<My_Timer<<endl;
+   for(auto it=my_map.begin();it!=my_map.end();it++){
+
+      int val=(*it).second;
+
+      if(val==1){
+        draw_the_pens();
+      }
+      if(val==2){
+        draw_the_lines();
+      }
+      if(val==3){
+        write_the_texts();
+      }
+      if(val==4){
+        draw_the_rects();
+      }
+      if(val==5){
+        draw_the_circles();
+      }
+      IDX_lim[val]++;
+   }
+
+   work_onthe_circle(1);
+   work_onthe_rects(1);
+   work_onthe_line(1);
+   work_onthe_text(1);
+   work_onthe_pen(1);
+
+}
+void display(void){
+   glClear(GL_COLOR_BUFFER_BIT);
+
+
+   draw_the_layout();
+
+   glutSwapBuffers();
+   glFlush();
+}
+void passivemouse(int x,int y){
+   double c_x=0,c_y=0;
+   c_x=x;
+   c_y=y;
+
+   c_x= 0.5+1.0*c_x*log_w/ph_w;
+   c_y= ph_l-c_y;
+   c_y= 0.5+1.0*c_y*log_l/ph_l;
+
+    mouse_x1=c_x;
+    mouse_y1=c_y;
+
+    is_in_MMouse=0;
+    is_in_keyboard=0;
+   glutPostRedisplay();
+}
+void click_mouse(int bnt,int state,int x,int y){
+
+    if(bnt==GLUT_LEFT_BUTTON&&state==GLUT_DOWN){
+
+        is_in_MMouse=0;
+        is_in_keyboard=0;
+        double c_x=0,c_y=0;
+        c_x=x;
+        c_y=y;
+
+        c_x= 0.5+1.0*c_x*log_w/ph_w;
+        c_y= ph_l-c_y;
+        c_y= 0.5+1.0*c_y*log_l/ph_l;
+
+        mouse_x2=c_x;
+        mouse_y2=c_y;
+
+        int clk_buttom=get_buttom(mouse_x2,mouse_y2);
+        if(clk_buttom!=13){
+            vis_buttom[13]=0;
+        }
+        if(clk_buttom>=1&&clk_buttom<=8){
+          for(int i=1;i<=8;i++){
+            if(i==clk_buttom) continue;
+            vis_buttom[i]=0;
+          }
+          vis_buttom[clk_buttom]++;
+          if(clk_buttom!=13)
+          vis_buttom[clk_buttom]%=2;
+        }
+        if(clk_buttom>=9&&clk_buttom<=16){
+          for(int i=9;i<=16;i++){
+              if(i==clk_buttom) continue;
+              if(((clk_buttom==12||clk_buttom==14)&&(i==15||i==16))) continue;
+              vis_buttom[i]=0;
+          }
+          vis_buttom[clk_buttom]++;
+          vis_buttom[clk_buttom]%=2;
+        }
+
+
+
+    }
+    else{
+       vis_buttom[13]=0;
+      ;//  str_x=str_y=-2;
+    }
+
+    glutPostRedisplay();
+}
+void MMouse(int x,int y){
+
+        double c_x=0,c_y=0;
+        c_x=x;
+        c_y=y;
+
+        c_x= 0.5+1.0*c_x*log_w/ph_w;
+        c_y= ph_l-c_y;
+        c_y= 0.5+1.0*c_y*log_l/ph_l;
+
+        mouse_x3=c_x;
+        mouse_y3=c_y;
+
+        is_in_MMouse=1;
+        is_in_keyboard=0;
+        glutPostRedisplay();
+}
+
+
+void keyboard(unsigned char key,int x,int y){
+
+    is_in_keyboard=1;
+    my_key=key;
+    glutPostRedisplay();
+}
+void Init2D(float r, float g, float b){
+
+  glClearColor(r,g,b,0);
+  glMatrixMode (GL_PROJECTION);
+  gluOrtho2D(0,log_l,0,log_w);
+}
+
+int main(int argc,char *argv[]){
+
+  glutInit(&argc,argv);
+  glutInitDisplayMode (GLUT_RGB | GLUT_DOUBLE );
+  glutInitWindowSize(ph_l, ph_w);
+  glutInitWindowPosition(80, 80);
+  glutCreateWindow("Paint");
+
+  Init2D(1.0,1.0,1.0);
+
+  glutDisplayFunc(display);
+
+  glutPassiveMotionFunc(passivemouse);
+
+  glutMouseFunc(click_mouse);
+
+  glutMotionFunc(MMouse);
+
+  glutKeyboardFunc(keyboard);
+
+  glutMainLoop();
+}
